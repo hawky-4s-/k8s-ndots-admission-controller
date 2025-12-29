@@ -29,13 +29,13 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("from env", func(t *testing.T) {
-		os.Setenv("PORT", "9090")
-		os.Setenv("NDOTS_VALUE", "5")
-		os.Setenv("ANNOTATION_MODE", "opt-in")
-		os.Setenv("NAMESPACE_INCLUDE", "prod,staging")
-		os.Setenv("LOG_LEVEL", "debug")
-		os.Setenv("LOG_FORMAT", "text")
-		os.Setenv("METRICS_PORT", "9090")
+		require.NoError(t, os.Setenv("PORT", "9090"))
+		require.NoError(t, os.Setenv("NDOTS_VALUE", "5"))
+		require.NoError(t, os.Setenv("ANNOTATION_MODE", "opt-in"))
+		require.NoError(t, os.Setenv("NAMESPACE_INCLUDE", "prod,staging"))
+		require.NoError(t, os.Setenv("LOG_LEVEL", "debug"))
+		require.NoError(t, os.Setenv("LOG_FORMAT", "text"))
+		require.NoError(t, os.Setenv("METRICS_PORT", "9090"))
 
 		defer os.Clearenv()
 
@@ -51,7 +51,7 @@ func TestLoad(t *testing.T) {
 	})
 
 	t.Run("bad env", func(t *testing.T) {
-		os.Setenv("PORT", "invalid")
+		require.NoError(t, os.Setenv("PORT", "invalid"))
 		defer os.Clearenv()
 
 		cfg, err := Load()

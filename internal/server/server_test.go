@@ -16,7 +16,7 @@ func TestNew(t *testing.T) {
 		TLSCertPath: "test.crt", // These won't be read in this test
 		TLSKeyPath:  "test.key",
 	}
-	
+
 	srv, err := New(cfg, http.NewServeMux())
 	require.NoError(t, err)
 	assert.NotNil(t, srv)
@@ -64,7 +64,7 @@ func TestServer_HealthEndpoints(t *testing.T) {
 
 			resp := w.Result()
 			assert.Equal(t, tt.wantCode, resp.StatusCode)
-			
+
 			// Check body
 			body := w.Body.String()
 			assert.Equal(t, tt.wantBody, body)

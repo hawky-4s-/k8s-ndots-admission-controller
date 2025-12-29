@@ -33,7 +33,7 @@ func New(cfg Config, handler http.Handler) (*Server, error) {
 	}
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
-	
+
 	httpServer := &http.Server{
 		Addr:              addr,
 		Handler:           handler,
@@ -63,11 +63,11 @@ func (s *Server) Shutdown(ctx context.Context) error {
 // HandleHealthz handles liveness probes.
 func (s *Server) HandleHealthz(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
+	_, _ = w.Write([]byte("ok"))
 }
 
 // HandleReadyz handles readiness probes.
 func (s *Server) HandleReadyz(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
+	_, _ = w.Write([]byte("ok"))
 }

@@ -42,7 +42,7 @@ test-e2e:
 
 # Run linter
 lint:
-	docker run --rm -v $(PWD):/app -w /app -v $(shell go env GOCACHE):/root/.cache/go-build -v $(shell go env GOMODCACHE):/go/pkg/mod $(LINT_IMG) golangci-lint run -v
+	sudo docker run --rm -v $(PWD):/app -w /app -v $(shell go env GOCACHE):/root/.cache/go-build -v $(shell go env GOMODCACHE):/go/pkg/mod $(LINT_IMG) golangci-lint run -v
 
 # Build Docker image
 docker-build:
