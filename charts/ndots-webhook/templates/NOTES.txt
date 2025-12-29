@@ -1,0 +1,33 @@
+1. Get the application URL by running these commands:
+{{- if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "ndots-webhook.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo https://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "ndots-webhook.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "ndots-webhook.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo https://$SERVICE_IP:{{ .Values.service.port }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  The webhook is running as a ClusterIP service and is only accessible within the cluster.
+  
+  Service: {{ include "ndots-webhook.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+{{- end }}
+
+2. The webhook is configured with:
+   - ndots value: {{ .Values.ndots.value }}
+   - Annotation key: {{ .Values.ndots.annotationKey }}
+   - Annotation mode: {{ .Values.ndots.annotationMode }}
+
+3. Excluded namespaces: {{ .Values.namespace.exclude | join ", " }}
+
+{{- if .Values.metrics.enabled }}
+
+4. Metrics are available at port {{ .Values.metrics.port }}
+{{- end }}
+
+{{- if .Values.tls.useCertManager }}
+
+5. TLS certificates are managed by cert-manager.
+   Make sure cert-manager is installed in your cluster.
+{{- end }}

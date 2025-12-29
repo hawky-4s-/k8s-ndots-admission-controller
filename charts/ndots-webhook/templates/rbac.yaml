@@ -1,0 +1,42 @@
+{{- if .Values.serviceAccount.create -}}
+# The webhook doesn't need any Kubernetes API permissions by default
+# since it only responds to AdmissionReview requests.
+# This Role/RoleBinding is included for documentation and future extensibility.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "ndots-webhook.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ndots-webhook.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules: []
+# Uncomment below if you need to read ConfigMaps for configuration:
+# - apiGroups: [""]
+#   resources: ["configmaps"]
+#   resourceNames: ["{{ include "ndots-webhook.fullname" . }}-config"]
+#   verbs: ["get", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "ndots-webhook.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ndots-webhook.labels" . | nindent 4 }}
+  {{- with .Values.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "ndots-webhook.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "ndots-webhook.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

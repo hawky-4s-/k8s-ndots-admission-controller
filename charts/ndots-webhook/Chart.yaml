@@ -1,0 +1,18 @@
+apiVersion: v2
+name: ndots-webhook
+description: A Helm chart for deploying the ndots Kubernetes Mutating Admission Webhook
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - kubernetes
+  - admission-controller
+  - webhook
+  - dns
+  - ndots
+home: https://github.com/hawky-4s-/k8s-ndots-admission-controller
+sources:
+  - https://github.com/hawky-4s-/k8s-ndots-admission-controller
+maintainers:
+  - name: hawky-4s-
+    url: https://github.com/hawky-4s-
