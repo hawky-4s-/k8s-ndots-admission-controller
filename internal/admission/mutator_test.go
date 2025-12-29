@@ -4,10 +4,11 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/hawky-4s-/k8s-ndots-admission-controller/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/hawky-4s-/k8s-ndots-admission-controller/internal/config"
 )
 
 func TestMutator_Mutate(t *testing.T) {
@@ -19,16 +20,16 @@ func TestMutator_Mutate(t *testing.T) {
 	ndotsFive := "5"
 
 	tests := []struct {
-		name          string
-		pod           *corev1.Pod
-		wantPatchLen  int
-		wantOp        string
-		wantPath      string
-		wantValCheck  func(*testing.T, interface{})
+		name         string
+		pod          *corev1.Pod
+		wantPatchLen int
+		wantOp       string
+		wantPath     string
+		wantValCheck func(*testing.T, interface{})
 	}{
 		{
-			name: "no dnsConfig -> add full config",
-			pod:  &corev1.Pod{Spec: corev1.PodSpec{}},
+			name:         "no dnsConfig -> add full config",
+			pod:          &corev1.Pod{Spec: corev1.PodSpec{}},
 			wantPatchLen: 1,
 			wantOp:       "add",
 			wantPath:     "/spec/dnsConfig",
