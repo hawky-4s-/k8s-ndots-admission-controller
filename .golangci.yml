@@ -1,8 +1,8 @@
+version: "2"
+
 run:
   timeout: 5m
   tests: true
-
-version: "2"
 
 linters:
   enable:
@@ -17,4 +17,5 @@ formatters:
     - goimports
   settings:
     goimports:
-      local-prefixes: github.com/hawky-4s-/k8s-ndots-admission-controller
+      local-prefixes:
+        - github.com/hawky-4s-/k8s-ndots-admission-controller
