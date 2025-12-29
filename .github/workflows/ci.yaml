@@ -79,3 +79,24 @@ jobs:
           format: 'table'
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
+
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.28.15, v1.30.13, v.1.32.11]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+          cache: true
+      - name: Build Tools
+        run: make build-tools
+      - name: Run E2E Tests
+        run: make e2e KIND_NODE_IMAGE=kindest/node:${{ matrix.k8s-version }}
+        env:
+          KIND_CLUSTER: ndots-${{ matrix.k8s-version }}
