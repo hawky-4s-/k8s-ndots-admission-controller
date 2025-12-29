@@ -31,12 +31,12 @@ test-unit:
 
 # Run integration tests
 test-integration:
-	go test -v -race ./test/integration/...
+	go test -v -race -tags integration ./test/integration/...
 
 # Run E2E tests (requires kind cluster with webhook deployed)
 test-e2e:
 	$(TOOLS_CMD) kubectl config use-context $(KIND_CONTEXT)
-	KUBECONFIG=$(KUBECONFIG) go test -v -timeout 5m ./test/e2e/...
+	KUBECONFIG=$(KUBECONFIG) go test -v -timeout 5m -tags e2e ./test/e2e/...
 
 # Run linter
 lint:
