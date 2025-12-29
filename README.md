@@ -1,5 +1,9 @@
 # Kubernetes ndots Admission Controller
 
+![CI](https://github.com/hawky-4s-/k8s-ndots-admission-controller/actions/workflows/ci.yaml/badge.svg)
+![Release](https://github.com/hawky-4s-/k8s-ndots-admission-controller/actions/workflows/release.yaml/badge.svg)
+[![codecov](https://codecov.io/gh/hawky-4s-/k8s-ndots-admission-controller/graph/badge.svg?token=CODECOV_TOKEN)](https://codecov.io/gh/hawky-4s-/k8s-ndots-admission-controller)
+
 A Mutating Admission Controller that injects or updates the `ndots` configuration in `Pod.spec.dnsConfig`. This helps improve DNS resolution performance for applications running in Kubernetes, especially when communicating with external services.
 
 ## Features
