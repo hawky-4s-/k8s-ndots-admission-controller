@@ -1,0 +1,141 @@
+# Default values for ndots-webhook.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/hawky-4s-/ndots-webhook
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Common annotations to add to all resources
+commonAnnotations: {}
+  # maintainer_team: my-team
+  # environment: production
+
+# Common labels to add to all resources
+commonLabels: {}
+
+# ndots webhook configuration
+ndots:
+  # The ndots value to set on pods
+  value: 2
+  # Annotation key to check for opt-in/opt-out
+  annotationKey: "change-ndots"
+  # Mode: "always", "opt-in", or "opt-out"
+  annotationMode: "opt-out"
+
+# Namespace filtering
+namespace:
+  # Namespaces to exclude from mutation (always excluded)
+  exclude:
+    - kube-system
+    - kube-public
+    - kube-node-lease
+  # Namespaces to include (if empty, all non-excluded namespaces are included)
+  include: []
+
+# Webhook configuration
+webhook:
+  # What to do if the webhook fails: Ignore or Fail
+  failurePolicy: Ignore
+  # Timeout for webhook calls
+  timeoutSeconds: 10
+  # Reinvocation policy: Never or IfNeeded
+  reinvocationPolicy: Never
+
+# TLS configuration
+tls:
+  # Use cert-manager for certificate management
+  useCertManager: true
+  # cert-manager specific settings
+  certManager:
+    # Duration of the certificate
+    duration: 8760h # 1 year
+    # When to renew
+    renewBefore: 720h # 30 days
+    issuer:
+      # Create a self-signed issuer
+      create: true
+      # Name of existing issuer (if create is false)
+      name: ""
+      # Kind: Issuer or ClusterIssuer
+      kind: Issuer
+
+# Logging configuration
+logging:
+  # Log level: debug, info, warn, error
+  level: info
+  # Log format: json or text
+  format: json
+
+# Metrics configuration
+metrics:
+  # Enable metrics endpoint
+  enabled: true
+  # Metrics port
+  port: 8080
+  # Service monitor for Prometheus Operator
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: 30s
+    scrapeTimeout: 10s
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  fsGroup: 65534
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 65534
+
+service:
+  type: ClusterIP
+  port: 443
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 50m
+    memory: 64Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Priority class name
+priorityClassName: ""
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
