@@ -8,6 +8,8 @@ TOOLS_IMG ?= ndots-test-tools
 TMP_DIR ?= $(PWD)/tmp
 KUBECONFIG ?= $(TMP_DIR)/config
 
+LINT_IMG ?= golangci/golangci-lint:v2.7.2
+
 # Dockerized commands
 # We need --network host for kind to access the cluster if needed, and docker socket
 DOCKER_RUN = sudo docker run --rm -u $(shell id -u):$(shell id -g) --group-add $(shell stat -c '%g' /var/run/docker.sock) -v $(PWD):/app -w /app -v $(TMP_DIR):/tmp/.kube -e HOME=/tmp -v /var/run/docker.sock:/var/run/docker.sock --network host
@@ -40,7 +42,7 @@ test-e2e:
 
 # Run linter
 lint:
-	golangci-lint run
+	docker run --rm -v $(PWD):/app -w /app -v $(shell go env GOCACHE):/root/.cache/go-build -v $(shell go env GOMODCACHE):/go/pkg/mod $(LINT_IMG) golangci-lint run -v
 
 # Build Docker image
 docker-build:
