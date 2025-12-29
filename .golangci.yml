@@ -4,14 +4,15 @@ run:
 
 linters:
   enable:
-    - gofmt
-    - goimports
     - govet
     - staticcheck
-    - gosimple
     - ineffassign
     - misspell
 
-linters-settings:
-  goimports:
-    local-prefixes: github.com/hawky-4s-/k8s-ndots-admission-controller
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes: github.com/hawky-4s-/k8s-ndots-admission-controller
