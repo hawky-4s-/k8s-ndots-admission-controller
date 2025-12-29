@@ -8,7 +8,7 @@ This is a Kubernetes admission controller that manages the `ndots` DNS configura
 
 ## Technology Stack
 
-- **Language**: Go 1.22+
+- **Language**: Go 1.25+
 - **Container Runtime**: containerd / Docker / Podman
 - **Orchestration**: Kubernetes
 - **Testing**: Go testing, testify, envtest (for integration tests)
@@ -262,7 +262,7 @@ make test-e2e
 
 ### Prerequisites
 
-- Go 1.22+
+- Go 1.25.5+
 - Docker or Podman
 - kubectl
 - kind (for local Kubernetes cluster)
