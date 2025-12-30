@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ndots-admission-controller | Optimize Kubernetes DNS Performance</title>
+    <meta name="description" content="A Kubernetes Mutating Admission Controller to automatically optimize ndots configuration for better DNS performance.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="#" class="logo">ndots-admission-controller</a>
+            <div class="nav-links">
+                <a href="https://github.com/hawky-4s-/k8s-ndots-admission-controller" target="_blank">GitHub</a>
+                <a href="https://github.com/hawky-4s-/k8s-ndots-admission-controller/blob/main/README.md" target="_blank">Documentation</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="container">
+            <h1>Optimize Kubernetes<br>DNS Performance</h1>
+            <p class="hero-subtext">
+                Automatically configure <code>ndots</code> settings in your Pods to reduce unnecessary DNS queries and improve latency.
+            </p>
+            <div class="cta-group">
+                <a href="#install" class="btn btn-primary">Get Started</a>
+                <a href="https://github.com/hawky-4s-/k8s-ndots-admission-controller" class="btn btn-secondary">View Source</a>
+            </div>
+        </div>
+    </header>
+
+    <section id="features" class="features">
+        <div class="container">
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>Performance First</h3>
+                    <p>Reduces partial DNS collisions and improves external domain resolution speed by optimizing <code>ndots</code> configuration.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Flexible Control</h3>
+                    <p>Choose between <code>opt-in</code>, <code>opt-out</code>, or <code>always</code> modes to control which Pods get modified.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>Helm Ready</h3>
+                    <p>Deploy easily with a production-ready Helm chart. Configurable values for all settings.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="install" class="install">
+        <div class="container">
+            <h2>Installation</h2>
+            <p>Deploy using Helm in seconds.</p>
+            <div class="code-block">
+                <pre><code><span class="comment"># Add the repository</span>
+helm repo add ndots https://hawky-4s-.github.io/k8s-ndots-admission-controller
+helm repo update
+
+<span class="comment"># Install the chart</span>
+helm install ndots-webhook ndots/ndots-webhook \
+  --namespace ndots-system \
+  --create-namespace</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 ndots-admission-controller. Released under the MIT License.</p>
+        </div>
+    </footer>
+</body>
+</html>
