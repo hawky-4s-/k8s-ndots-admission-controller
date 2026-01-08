@@ -32,7 +32,7 @@ Initialize the Go project with proper structure, build tooling, and containeriza
 ├── deploy/
 │   └── kubernetes/           # Raw manifests (for development)
 ├── charts/
-│   └── ndots-webhook/        # Helm chart
+│   └── k8s-ndots-admission-controller/        # Helm chart
 ├── scripts/
 │   └── generate-certs.sh     # TLS cert generation for dev
 ├── test/
