@@ -3,8 +3,10 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -31,10 +33,45 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
+	printControllerLogs()
+
 	// Cleanup: delete test namespace
 	cleanupTestEnvironment()
 
 	os.Exit(code)
+}
+
+func printControllerLogs() {
+	if clientset == nil {
+		return
+	}
+	ctx := context.Background()
+	pods, err := clientset.CoreV1().Pods("ndots-system").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("Failed to list pods in ndots-system: %v\n", err)
+		return
+	}
+
+	fmt.Println("=== ndots-admission-controller logs ===")
+	for _, pod := range pods.Items {
+		fmt.Printf("--- Pod: %s ---\n", pod.Name)
+		req := clientset.CoreV1().Pods("ndots-system").GetLogs(pod.Name, &corev1.PodLogOptions{})
+		podLogs, err := req.Stream(ctx)
+		if err != nil {
+			fmt.Printf("Failed to open stream for pod %s: %v\n", pod.Name, err)
+			continue
+		}
+		defer podLogs.Close()
+
+		buf := new(bytes.Buffer)
+		_, err = io.Copy(buf, podLogs)
+		if err != nil {
+			fmt.Printf("Failed to read logs for pod %s: %v\n", pod.Name, err)
+			continue
+		}
+		fmt.Println(buf.String())
+	}
+	fmt.Println("=======================================")
 }
 
 func setupTestEnvironment() error {
