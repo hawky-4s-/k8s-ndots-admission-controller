@@ -278,11 +278,11 @@ make build
 make run
 
 # Build container image
-make docker-build IMG=<registry>/k8s-ndots-webhook:dev
+make docker-build IMG=<registry>/k8s-ndots-admission-controller:dev
 
 # Deploy to local kind cluster
 make kind-create
-make kind-load IMG=<registry>/k8s-ndots-webhook:dev
+make kind-load IMG=<registry>/k8s-ndots-admission-controller:dev
 make deploy
 
 # Run linting
@@ -305,7 +305,7 @@ make certs
 ### Debugging
 
 - Set `LOG_LEVEL=debug` environment variable for verbose logging
-- Use `kubectl logs -f deployment/ndots-webhook` to follow logs
+- Use `kubectl logs -f deployment/k8s-ndots-admission-controller` to follow logs
 - Check webhook configuration: `kubectl get mutatingwebhookconfiguration`
 
 ---
@@ -353,7 +353,7 @@ The mutating webhook intercepts Pod creation and updates:
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: ndots-webhook
+  name: k8s-ndots-admission-controller
 webhooks:
   - name: ndots.admission.k8s.io
     rules:
@@ -363,7 +363,7 @@ webhooks:
         resources: ["pods"]
     clientConfig:
       service:
-        name: ndots-webhook
+        name: k8s-ndots-admission-controller
         namespace: ndots-system
         path: /mutate
     admissionReviewVersions: ["v1"]

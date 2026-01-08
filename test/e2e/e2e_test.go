@@ -278,7 +278,7 @@ func TestE2E_NamespaceExclusion(t *testing.T) {
 	ctx := context.Background()
 
 	// Get the MutatingWebhookConfiguration
-	_, err := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, "ndots-webhook", metav1.GetOptions{})
+	_, err := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, "k8s-ndots-admission-controller", metav1.GetOptions{})
 	if err != nil {
 		// Try to list if specific name failed (chart might name it differently)
 		list, listErr := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{})
@@ -290,7 +290,7 @@ func TestE2E_NamespaceExclusion(t *testing.T) {
 		}
 		t.Logf("Found %d webhook configurations", len(list.Items))
 	} else {
-		t.Log("Verified MutatingWebhookConfiguration 'ndots-webhook' exists")
+		t.Log("Verified MutatingWebhookConfiguration 'k8s-ndots-admission-controller' exists")
 	}
 
 	t.Log("Verified MutatingWebhookConfiguration exists")

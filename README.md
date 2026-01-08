@@ -36,7 +36,7 @@ A Mutating Admission Controller that injects or updates the `ndots` configuratio
 
 2. Install the chart:
    ```bash
-   helm upgrade --install ndots ./charts/ndots-webhook \
+   helm upgrade --install ndots ./charts/k8s-ndots-admission-controller \
      --namespace ndots-system \
      --create-namespace
    ```
