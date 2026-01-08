@@ -27,10 +27,11 @@ func NewMutator(cfg *config.Config, logger *slog.Logger) *Mutator {
 }
 
 func (m *Mutator) Mutate(pod *corev1.Pod) ([]PatchOperation, error) {
+	podName := getPodName(pod)
 	if !m.namespaceFilter.ShouldMutate(pod.Namespace) {
 		m.logger.Debug("skipping mutation due to namespace filter",
 			"namespace", pod.Namespace,
-			"name", pod.Name,
+			"name", podName,
 		)
 		return nil, nil
 	}
@@ -38,7 +39,7 @@ func (m *Mutator) Mutate(pod *corev1.Pod) ([]PatchOperation, error) {
 	if !m.annotationChecker.ShouldMutate(pod.Annotations) {
 		m.logger.Debug("skipping mutation due to annotation",
 			"namespace", pod.Namespace,
-			"name", pod.Name,
+			"name", podName,
 		)
 		return nil, nil
 	}
