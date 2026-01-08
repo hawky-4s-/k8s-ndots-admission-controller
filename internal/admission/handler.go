@@ -150,10 +150,12 @@ func (h *Handler) mutate(req *admissionv1.AdmissionRequest) *admissionv1.Admissi
 		}
 	}
 
+	podName := getPodName(&pod)
+
 	if patch == nil {
 		h.logger.Info("skipped mutation",
 			"namespace", namespace,
-			"name", pod.Name,
+			"name", podName,
 			"reason", "no changes needed",
 		)
 		h.recordMutation(namespace, "skipped")
@@ -173,7 +175,8 @@ func (h *Handler) mutate(req *admissionv1.AdmissionRequest) *admissionv1.Admissi
 
 	h.logger.Info("mutated pod",
 		"namespace", namespace,
-		"name", pod.Name,
+		"name", podName,
+		"patch", patch,
 	)
 	h.recordMutation(namespace, "mutated")
 
@@ -183,4 +186,11 @@ func (h *Handler) mutate(req *admissionv1.AdmissionRequest) *admissionv1.Admissi
 		Patch:     patchBytes,
 		PatchType: &patchType,
 	}
+}
+
+func getPodName(pod *corev1.Pod) string {
+	if pod.Name != "" {
+		return pod.Name
+	}
+	return pod.GenerateName
 }
