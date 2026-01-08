@@ -1,6 +1,6 @@
-# ndots-webhook Helm Chart
+# k8s-ndots-admission-controller Helm Chart
 
-A Helm chart for deploying the ndots-webhook mutating admission controller.
+A Helm chart for deploying the k8s-ndots-admission-controller mutating admission controller.
 
 ## Installation
 
@@ -14,7 +14,7 @@ helm upgrade --install ndots . \
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `image.repository` | Image repository | `ndots-webhook` |
+| `image.repository` | Image repository | `k8s-ndots-admission-controller` |
 | `image.tag` | Image tag | `latest` |
 | `config.ndotsValue` | The ndots value to set | `2` |
 | `config.annotationMode` | Mutation mode (`always`, `opt-in`, `opt-out`) | `opt-out` |

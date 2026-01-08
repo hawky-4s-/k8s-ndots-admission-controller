@@ -2,7 +2,7 @@
 set -e
 
 CLUSTER_NAME="ndots-dev"
-IMAGE_NAME="ndots-webhook:local"
+IMAGE_NAME="k8s-ndots-admission-controller:local"
 
 echo "🚀 Starting local development environment setup..."
 
@@ -49,13 +49,13 @@ kubectl cluster-info --context "kind-${CLUSTER_NAME}"
 # 5. Generate self-signed certs (using existing script or inline)
 echo "🔐 Generating TLS certificates..."
 mkdir -p dev-certs
-./scripts/generate-certs.sh "ndots-webhook.default.svc" "dev-certs"
+./scripts/generate-certs.sh "k8s-ndots-admission-controller.default.svc" "dev-certs"
 
 # 6. Deploy Webhook
 echo "🚀 Deploying webhook..."
 
 # Create secret
-kubectl create secret tls ndots-webhook-tls \
+kubectl create secret tls k8s-ndots-admission-controller-tls \
     --cert=dev-certs/tls.crt \
     --key=dev-certs/tls.key \
     --dry-run=client -o yaml | kubectl apply -f -
@@ -73,18 +73,18 @@ if [ ! -f "deploy/kubernetes/deployment.yaml" ]; then
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ndots-webhook
+  name: k8s-ndots-admission-controller
   labels:
-    app: ndots-webhook
+    app: k8s-ndots-admission-controller
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ndots-webhook
+      app: k8s-ndots-admission-controller
   template:
     metadata:
       labels:
-        app: ndots-webhook
+        app: k8s-ndots-admission-controller
     spec:
       containers:
         - name: webhook
@@ -106,28 +106,28 @@ spec:
       volumes:
         - name: certs
           secret:
-            secretName: ndots-webhook-tls
+            secretName: k8s-ndots-admission-controller-tls
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: ndots-webhook
+  name: k8s-ndots-admission-controller
 spec:
   ports:
     - port: 443
       targetPort: 8443
   selector:
-    app: ndots-webhook
+    app: k8s-ndots-admission-controller
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: ndots-webhook
+  name: k8s-ndots-admission-controller
 webhooks:
   - name: ndots.admission.k8s.io
     clientConfig:
       service:
-        name: ndots-webhook
+        name: k8s-ndots-admission-controller
         namespace: default
         path: "/mutate"
       caBundle: ${CA_BUNDLE}
@@ -147,7 +147,7 @@ kubectl apply -f deploy/kubernetes/manifests.yaml
 
 # 7. Wait for deployment
 echo "⏳ Waiting for webhook to be ready..."
-kubectl rollout status deployment/ndots-webhook --timeout=60s
+kubectl rollout status deployment/k8s-ndots-admission-controller --timeout=60s
 
 # 8. Deploy test pod
 echo "🧪 Deploying test pod..."

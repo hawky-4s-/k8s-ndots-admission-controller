@@ -1,6 +1,6 @@
 .PHONY: build test test-unit test-integration test-e2e lint docker-build kind-create kind-delete kind-load kind-context deploy undeploy build-tools
 
-IMG ?= ndots-webhook:latest
+IMG ?= k8s-ndots-admission-controller:latest
 KIND_CLUSTER ?= ndots-dev
 KIND_CONTEXT ?= kind-$(KIND_CLUSTER)
 KIND_NODE_IMAGE ?= kindest/node:v1.32.11
@@ -21,7 +21,7 @@ build-tools:
 
 # Build binary
 build:
-	go build -o bin/webhook ./cmd/webhook
+	go build -o bin/k8s-ndots-admission-controller ./cmd/k8s-ndots-admission-controller
 
 # Run all tests
 test:
@@ -81,11 +81,11 @@ deploy: kind-context kind-load
 	@echo "Installing cert-manager..."
 	$(TOOLS_CMD) kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
 	$(TOOLS_CMD) kubectl wait --for=condition=Available deployment -n cert-manager --all --timeout=120s
-	@echo "Deploying ndots-webhook..."
-	$(TOOLS_CMD) helm upgrade --install ndots ./charts/ndots-webhook \
+	@echo "Deploying k8s-ndots-admission-controller..."
+	$(TOOLS_CMD) helm upgrade --install ndots ./charts/k8s-ndots-admission-controller \
 		--namespace ndots-system \
 		--create-namespace \
-		--set image.repository=ndots-webhook \
+		--set image.repository=k8s-ndots-admission-controller \
 		--set image.tag=latest \
 		--wait
 
