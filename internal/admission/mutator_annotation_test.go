@@ -70,7 +70,7 @@ func TestMutator_Mutate_Annotations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mutator := NewMutator(tt.cfg, logger)
+			mutator := NewMutator(tt.cfg, logger, nil)
 			patches, err := mutator.Mutate(tt.pod)
 			require.NoError(t, err)
 
