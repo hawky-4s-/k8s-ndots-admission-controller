@@ -13,6 +13,7 @@ A Mutating Admission Controller that injects or updates the `ndots` configuratio
     - `opt-in`: Only mutate pods with annotation `change-ndots: "true"`.
     - `opt-out`: Mutate all pods except those with annotation `change-ndots: "false"`.
     - `always`: Mutate all pods regardless of annotations.
+- **Namespace Support**: Configure behavior at the namespace level using annotations.
 - **Namespace Filtering**: configurable list of included/excluded namespaces.
 - **Critical Namespace Protection**: automatically excludes `kube-system` and other critical namespaces.
 - **Helm Chart**: Easy deployment with Cert Manager integration.
@@ -51,6 +52,32 @@ A Mutating Admission Controller that injects or updates the `ndots` configuratio
 | `config.excludedNamespaces` | List of namespaces to ignore | `[kube-system, kube-public]` |
 | `useCertManager` | Use cert-manager for TLS | `true` |
 
+### Annotation Precedence
+
+The controller checks for annotations in the following order:
+
+1. **Pod Annotation**: The annotation on the Pod itself.
+2. **Namespace Annotation**: The annotation on the Namespace where the Pod is running.
+3. **Default Behavior**: The configured `annotationMode`.
+
+Pod annotations **always** take precedence over Namespace annotations.
+
+#### Precedence Matrix
+
+| Mode | Pod Annotation | Namespace Annotation | Result |
+|------|----------------|----------------------|--------|
+| **Opt-In** | `true` | *Any* | **Mutate** |
+| **Opt-In** | `false` | *Any* | **Skip** |
+| **Opt-In** | *Unset* | `true` | **Mutate** |
+| **Opt-In** | *Unset* | `false` | **Skip** |
+| **Opt-In** | *Unset* | *Unset* | **Skip** (Default) |
+| | | | |
+| **Opt-Out** | `true` | *Any* | **Mutate** |
+| **Opt-Out** | `false` | *Any* | **Skip** |
+| **Opt-Out** | *Unset* | `true` | **Mutate** |
+| **Opt-Out** | *Unset* | `false` | **Skip** |
+| **Opt-Out** | *Unset* | *Unset* | **Mutate** (Default) |
+
 ### Annotation Modes
 
 - **opt-out** (Default): Mutations happen automatically. To skip a pod, add:
@@ -84,6 +111,19 @@ spec:
       containers:
         - name: app
           image: nginx
+```
+
+### Namespace Level Configuration
+
+Enable mutation for all pods in a namespace (useful for `opt-in` mode):
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-namespace
+  annotations:
+    change-ndots: "true"
 ```
 
 ## Monitoring

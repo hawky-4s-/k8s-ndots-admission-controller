@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/hawky-4s-/k8s-ndots-admission-controller/internal/admission"
 	"github.com/hawky-4s-/k8s-ndots-admission-controller/internal/config"
@@ -34,11 +37,35 @@ func main() {
 	reg := prometheus.NewRegistry()
 	metricsRecorder := metrics.NewRecorder(reg)
 
-	// 4. Initialize components
-	mutator := admission.NewMutator(cfg, logger)
+	// 4. Initialize Kubernetes client
+	// Try in-cluster config first
+	kubeConfig, err := rest.InClusterConfig()
+	if err != nil {
+		// Fallback to local kubeconfig
+		kubeConfigPath := os.Getenv("KUBECONFIG")
+		if kubeConfigPath == "" {
+			kubeConfigPath = os.Getenv("HOME") + "/.kube/config"
+		}
+		kubeConfig, err = clientcmd.BuildConfigFromFlags("", kubeConfigPath)
+		if err != nil {
+			logger.Warn("failed to create kubernetes client config, proceeding without namespace support", "error", err)
+		}
+	}
+
+	var kubeClient kubernetes.Interface
+	if kubeConfig != nil {
+		kubeClient, err = kubernetes.NewForConfig(kubeConfig)
+		if err != nil {
+			logger.Error("failed to create kubernetes client", "error", err)
+			os.Exit(1)
+		}
+	}
+
+	// 5. Initialize components
+	mutator := admission.NewMutator(cfg, logger, kubeClient)
 	handler := admission.NewHandlerWithMetrics(mutator, logger, metricsRecorder)
 
-	// 5. Create server config
+	// 6. Create server config
 	srvCfg := server.Config{
 		Port:        cfg.Port,
 		TLSCertPath: cfg.TLSCertPath,
@@ -46,7 +73,7 @@ func main() {
 		Timeout:     cfg.Timeout,
 	}
 
-	// 6. Create router
+	// 7. Create router
 	mux := http.NewServeMux()
 
 	// Register application routes
@@ -63,7 +90,7 @@ func main() {
 	mux.HandleFunc("/healthz", srv.HandleHealthz)
 	mux.HandleFunc("/readyz", srv.HandleReadyz)
 
-	// 7. Start metrics server
+	// 8. Start metrics server
 	metricsSrv := metrics.NewServer(reg, cfg.MetricsPort)
 	go func() {
 		logger.Info("starting metrics server", "port", cfg.MetricsPort)
@@ -72,7 +99,7 @@ func main() {
 		}
 	}()
 
-	// 8. Start webhook server in background
+	// 9. Start webhook server in background
 	go func() {
 		logger.Info("starting webhook server", "port", cfg.Port)
 		if err := srv.Start(); err != nil && err != http.ErrServerClosed {
