@@ -28,15 +28,15 @@ A Mutating Admission Controller that injects or updates the `ndots` configuratio
 
 ### Install with Helm
 
-1. Add the repository (if applicable) or clone this repo:
+1. Add the Helm repository:
    ```bash
-   git clone https://github.com/hawky-4s-/k8s-ndots-admission-controller.git
-   cd k8s-ndots-admission-controller
+   helm repo add k8s-ndots-admission-controller https://hawky-4s-.github.io/k8s-ndots-admission-controller
+   helm repo update
    ```
 
 2. Install the chart:
    ```bash
-   helm upgrade --install ndots ./charts/k8s-ndots-admission-controller \
+   helm install ndots k8s-ndots-admission-controller/k8s-ndots-admission-controller \
      --namespace ndots-system \
      --create-namespace
    ```
