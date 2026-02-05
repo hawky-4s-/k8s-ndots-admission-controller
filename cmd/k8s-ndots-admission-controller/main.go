@@ -29,6 +29,7 @@ func main() {
 	// 2. Setup logging
 	logger := logging.NewLogger(cfg.LogLevel, cfg.LogFormat, os.Stdout)
 	slog.SetDefault(logger)
+	logger.Info("Configuration applied", "config", cfg)
 
 	// 3. Setup metrics
 	reg := prometheus.NewRegistry()
