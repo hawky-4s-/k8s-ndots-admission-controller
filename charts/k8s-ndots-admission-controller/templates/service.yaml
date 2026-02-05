@@ -5,9 +5,16 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "k8s-ndots-admission-controller.labels" . | nindent 4 }}
-  {{- with .Values.commonAnnotations }}
+  {{- $promAnnotations := and .Values.metrics.enabled (not .Values.metrics.serviceMonitor.enabled) }}
+  {{- if or .Values.commonAnnotations $promAnnotations }}
   annotations:
+    {{- if $promAnnotations }}
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.metrics.port | quote }}
+    {{- end }}
+    {{- with .Values.commonAnnotations }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
   type: {{ .Values.service.type }}
