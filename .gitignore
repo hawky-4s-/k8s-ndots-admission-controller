@@ -33,3 +33,5 @@ go.work.sum
 
 bin/
 tmp/
+
+k8s-ndots-admission-controller
