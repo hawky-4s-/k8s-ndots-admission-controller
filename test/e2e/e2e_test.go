@@ -371,23 +371,15 @@ func TestE2E_DebugLogs(t *testing.T) {
 			continue
 		}
 
-		// Since we can't easily change the deployment config at runtime in this test setup to force DEBUG level if it wasn't already,
-		// and the requirement implies checking if debug logs ARE printed (presumably assuming they are enabled or should be checked if enabled),
-		// we will check for ANY log output first, and then specifically look for debug-level indicators if the environment is set to debug.
-		// However, the prompt asks to "check in e2e tests that also debug logs are being printed on stdout".
-		// This likely implies we need to assert that we CAN see logs.
-		// For a robust test, we might check for the "Configuration applied" log which we added earlier, which is INFO level but verifies stdout works.
-		// Or check for "debug" key if LOG_LEVEL is debug.
-
 		logs := buf.String()
 		if len(logs) > 0 {
-			// Check for our startup log
-			if strings.Contains(logs, "Configuration applied") {
-				foundDebugLog = true
-				break
-			}
-			// Or check for structured logging keys
-			if strings.Contains(logs, "\"level\":") || strings.Contains(logs, "level=") {
+			// Check for debug level logs
+			// When using slog with JSON handler, debug logs usually contain "level":"DEBUG" or similar
+			// With text handler, level=DEBUG
+			// We configured LOG_LEVEL=debug in values.yaml
+
+			if strings.Contains(strings.ToUpper(logs), "\"LEVEL\":\"DEBUG\"") ||
+			   strings.Contains(strings.ToUpper(logs), "LEVEL=DEBUG") {
 				foundDebugLog = true
 				break
 			}
@@ -395,11 +387,8 @@ func TestE2E_DebugLogs(t *testing.T) {
 	}
 
 	if !foundDebugLog {
-		t.Log("Warning: No specific logs confirmed, but this might be due to log level configuration.")
-		// We don't fail here strictly unless we know we forced DEBUG mode.
-		// But to satisfy the user request "check... that debug logs are being printed",
-		// we should at least verify we can read logs.
+		t.Fatal("Debug logs not found in stdout. Expected to see logs with level=debug")
 	} else {
-		t.Log("Confirmed logs are being printed to stdout")
+		t.Log("Confirmed debug logs are being printed to stdout")
 	}
 }
