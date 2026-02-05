@@ -71,7 +71,7 @@ tls:
 # Logging configuration
 logging:
   # Log level: debug, info, warn, error
-  level: info
+  level: debug
   # Log format: json or text
   format: json
 
