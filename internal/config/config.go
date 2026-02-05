@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -107,6 +108,23 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+func (c *Config) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.Int("ndotsValue", c.NdotsValue),
+		slog.String("annotationKey", c.AnnotationKey),
+		slog.String("annotationMode", c.AnnotationMode),
+		slog.Any("namespaceInclude", c.NamespaceInclude),
+		slog.Any("namespaceExclude", c.NamespaceExclude),
+		slog.Int("port", c.Port),
+		slog.String("tlsCertPath", c.TLSCertPath),
+		slog.String("tlsKeyPath", c.TLSKeyPath),
+		slog.String("timeout", c.Timeout.String()),
+		slog.String("logLevel", c.LogLevel),
+		slog.String("logFormat", c.LogFormat),
+		slog.Int("metricsPort", c.MetricsPort),
+	)
 }
 
 func splitAndTrim(s string) []string {
