@@ -45,11 +45,11 @@ A Mutating Admission Controller that injects or updates the `ndots` configuratio
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `config.ndotsValue` | The ndots value to set | `2` |
-| `config.annotationKey` | Annotation key for control | `change-ndots` |
-| `config.annotationMode` | Mode: `always`, `opt-in`, `opt-out` | `opt-out` |
-| `config.excludedNamespaces` | List of namespaces to ignore | `[kube-system, kube-public]` |
-| `useCertManager` | Use cert-manager for TLS | `true` |
+| `ndots.value` | The ndots value to set | `2` |
+| `ndots.annotationKey` | Annotation key for control | `change-ndots` |
+| `ndots.annotationMode` | Mode: `always`, `opt-in`, `opt-out` | `opt-out` |
+| `namespace.exclude` | List of namespaces to ignore | `[kube-system, kube-public, kube-node-lease]` |
+| `tls.useCertManager` | Use cert-manager for TLS | `true` |
 
 ### Annotation Modes
 
@@ -89,6 +89,10 @@ spec:
 ## Monitoring
 
 Metrics are exposed on port `8080` at `/metrics`.
+
+If `metrics.serviceMonitor.enabled` is `false` (default), the Service is automatically annotated with:
+- `prometheus.io/scrape: "true"`
+- `prometheus.io/port: "8080"` (or configured port)
 
 | Metric | Description |
 |--------|-------------|
