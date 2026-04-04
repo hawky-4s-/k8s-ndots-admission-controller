@@ -120,6 +120,14 @@ func cleanupTestEnvironment() {
 }
 
 // TestE2E_PodMutation tests that pods get the ndots value mutated
+//
+// Scenario:
+//
+//	┌───────-──────┐      ┌─────-──────────────┐      ┌─────────────────────┐
+//	│  Create Pod  │─────>│  Admission Webhook │─────>│  Pod with ndots=2   │
+//	│  (busybox)   │      │  mutates pod       │      │  in DNSConfig       │
+//	└──────-───────┘      └──────-─────────────┘      └─────────────────────┘
+//	 namespace: test        injects dnsConfig          ✅ ndots = "2"
 func TestE2E_PodMutation(t *testing.T) {
 	if clientset == nil {
 		t.Skip("No Kubernetes client available, skipping E2E test")
@@ -175,6 +183,15 @@ func TestE2E_PodMutation(t *testing.T) {
 }
 
 // TestE2E_DeploymentMutation tests that pods created by Deployments get mutated
+//
+// Scenario:
+//
+//	┌───────────-─────┐      ┌───────-───────┐      ┌───────────────────┐      ┌─────-─────────────┐
+//	│  Create         │─────>│  ReplicaSet   │─────>│  Pod spawned by   │─────>│  Webhook mutates  │
+//	│  Deployment     │      │  created      │      │  RS controller    │      │  pod: ndots=2     │
+//	│  (replicas: 1)  │      │  automatically│      │                   │      │                   │
+//	└────────────-────┘      └─────────-─────┘      └───────────────────┘      └──────-────────────┘
+//	 namespace: test                                 label selector match       ✅ ndots = "2"
 func TestE2E_DeploymentMutation(t *testing.T) {
 	if clientset == nil {
 		t.Skip("No Kubernetes client available, skipping E2E test")
@@ -257,6 +274,15 @@ func TestE2E_DeploymentMutation(t *testing.T) {
 }
 
 // TestE2E_AnnotationOptOut tests that pods with opt-out annotation are NOT mutated
+//
+// Scenario:
+//
+//	┌──────────────────────────┐      ┌───────────-────────┐      ┌──────────────────┐
+//	│  Create Pod              │─────>│  Admission Webhook │─────>│  Pod UNCHANGED   │
+//	│  annotations:            │      │  checks annotation │      │  no dnsConfig    │
+//	│    change-ndots: "false" │      │  → opt-out!        │      │  injected        │
+//	└──────────────────────────┘      └────────────-───────┘      └──────────────────┘
+//	                                   🚫 SKIP                    ✅ no ndots
 func TestE2E_AnnotationOptOut(t *testing.T) {
 	if clientset == nil {
 		t.Skip("No Kubernetes client available, skipping E2E test")
@@ -305,6 +331,30 @@ func TestE2E_AnnotationOptOut(t *testing.T) {
 }
 
 // TestE2E_NamespaceExclusion tests that pods in excluded namespaces are NOT mutated
+//
+// Scenario:
+//
+//	┌─────────────────-─────────────┐
+//	│  MutatingWebhookConfiguration │
+//	└──────────┬──────-─────────────┘
+//	           │
+//	           ▼
+//	┌──────────────────────────┐
+//	│  namespaceSelector rule: │
+//	│                          │
+//	│   EXCLUDE:               │
+//	│   ┌───────────-──────┐   │
+//	│   │  kube-system     │   │   ← system namespaces
+//	│   │  kube-public     │   │     never get mutated
+//	│   │  kube-node-lease │   │
+//	│   └─────────-────────┘   │
+//	│                          │
+//	│   INCLUDE:               │
+//	│   ┌───────-──────────┐   │
+//	│   │  everything else │   │   ← user namespaces
+//	│   └───────-──────────┘   │     get ndots=2
+//	└──────────────────────────┘
+//	            ✅ webhook config exists & correct
 func TestE2E_NamespaceExclusion(t *testing.T) {
 	if clientset == nil {
 		t.Skip("No Kubernetes client available, skipping E2E test")
@@ -343,6 +393,17 @@ func TestE2E_NamespaceExclusion(t *testing.T) {
 }
 
 // TestE2E_DebugLogs verifies that debug logs are printed to stdout
+//
+// Scenario:
+//
+//	┌───────────────────────┐      ┌─────────────────────────────┐
+//	│  ndots-admission-ctrl │─────>│  stdout logs                │
+//	│  pods in ndots-system │      │                             │
+//	└───────────────────────┘      │  {"LEVEL":"DEBUG", ...}     │
+//	                               │      or                     │
+//	 LOG_LEVEL=debug               │  LEVEL=DEBUG ...            │
+//	                               └─────────────────────────────┘
+//	                                ✅ debug logging is active
 func TestE2E_DebugLogs(t *testing.T) {
 	if clientset == nil {
 		t.Skip("No Kubernetes client available, skipping E2E test")

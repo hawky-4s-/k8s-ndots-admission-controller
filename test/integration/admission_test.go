@@ -31,6 +31,23 @@ import (
 
 // TestIntegration_FullAdmissionFlow tests the complete admission flow
 // from HTTP request to mutation response
+//
+// Scenario:
+//
+//	┌──────────────────────┐     ┌──────────┐     ┌────────────────────────┐
+//	│ CASE A: plain pod    │────>│          │────>│ ✅ MUTATED: ndots=2    │
+//	│ (no dnsConfig)       │     │          │     └────────────────────────┘
+//	└──────────────────────┘     │          │
+//	                             │ Webhook  │
+//	┌──────────────────────┐     │ Handler  │     ┌──────────────-─────────┐
+//	│ CASE B: pod with     │────>│          │────>│ 🚫 SKIPPED: opt-out    │
+//	│ change-ndots: "false"│     │ (httptest│     └──────────────-─────────┘
+//	└──────────────────────┘     │  server) │
+//	                             │          │
+//	┌──────────────────────┐     │          │     ┌────────────────────────┐
+//	│ CASE C: pod already  │────>│          │────>│ 🚫 NO CHANGE: already  │
+//	│ has ndots=2          │     │          │     │    has correct value   │
+//	└──────────────────────┘     └──────────┘     └────────────────────────┘
 func TestIntegration_FullAdmissionFlow(t *testing.T) {
 	// Create a full stack with real components
 	cfg := &config.Config{
@@ -163,6 +180,20 @@ func TestIntegration_FullAdmissionFlow(t *testing.T) {
 }
 
 // TestIntegration_ConcurrentAdmissions tests handling of concurrent requests
+//
+// Scenario:
+//
+//	     ┌─── req 1  ──┐
+//	     ├─── req 2  ──┤
+//	     ├─── req 3  ──┤
+//	     ├─── req 4  ──┤
+//	     ├─── req 5  ──┤──────>  ┌──────-────┐  ──────>  all 10 return
+//	     ├─── req 6  ──┤         │  Webhook  │           HTTP 200
+//	     ├─── req 7  ──┤         │  Handler  │           ✅ thread-safe
+//	     ├─── req 8  ──┤         └─────-─────┘
+//	     ├─── req 9  ──┤
+//	     └─── req 10 ──┘
+//	      (goroutines)
 func TestIntegration_ConcurrentAdmissions(t *testing.T) {
 	cfg := &config.Config{
 		NdotsValue:     1,
@@ -229,6 +260,19 @@ func TestIntegration_ConcurrentAdmissions(t *testing.T) {
 }
 
 // TestIntegration_MetricsRecorded tests that metrics are properly recorded
+//
+// Scenario:
+//
+//	┌───────-───┐      ┌──────────┐      ┌──────────────────────────────────┐
+//	│  Send     │─────>│  Webhook │─────>│  Prometheus Metrics              │
+//	│  Request  │      │  Handler │      │                                  │
+//	└──────-────┘      └──────────┘      │  ndots_webhook_mutations_total   │
+//	                                     │  ✅ counter incremented          │
+//	                                     │                                  │
+//	                                     │  ndots_webhook_request_          │
+//	                                     │  duration_seconds                │
+//	                                     │  ✅ histogram recorded           │
+//	                                     └──────────────────────────────────┘
 func TestIntegration_MetricsRecorded(t *testing.T) {
 	cfg := &config.Config{
 		NdotsValue:     2,
@@ -286,6 +330,15 @@ func TestIntegration_MetricsRecorded(t *testing.T) {
 }
 
 // TestIntegration_TLSServer tests the server with TLS (when certs are available)
+//
+// Scenario:
+//
+//	┌───────-───┐    TLS/HTTPS    ┌──────────────--──────┐      ┌──────────────┐
+//	│  Client   │═══════════════> │  httptest.TLSServer  │─────>│  ✅ 200 OK   │
+//	│           │  🔒 encrypted   │  (self-signed cert)  │      │  mutation    │
+//	└──────-────┘                 └────────────--────────┘      │  works over  │
+//	                                                            │  TLS         │
+//	                  (skipped in CI)                           └──────────────┘
 func TestIntegration_TLSServer(t *testing.T) {
 	// Skip if running in CI without certs
 	if os.Getenv("CI") != "" {
@@ -340,6 +393,24 @@ func TestIntegration_TLSServer(t *testing.T) {
 
 // TestIntegration_WorkloadTypes tests that pods created by different controllers are properly mutated
 // This simulates how the Kubernetes API server sends AdmissionReview for pods with ownerReferences
+//
+// Scenario:
+//
+//	┌─────────────────────────────────────────────────────────────┐
+//	│                    ALL WORKLOAD TYPES                       │
+//	│                                                             │
+//	│  Deployment ──> ReplicaSet ──> Pod   ✅ ndots=2             │
+//	│                                                             │
+//	│  StatefulSet ──────────────> Pod     ✅ ndots=2             │
+//	│                                                             │
+//	│  DaemonSet ────────────────> Pod     ✅ ndots=2             │
+//	│                                                             │
+//	│  Job ──────────────────────> Pod     ✅ ndots=2             │
+//	│                                                             │
+//	│  CronJob ──────> Job ──────> Pod     ✅ ndots=2             │
+//	│                                                             │
+//	│  (webhook intercepts at Pod creation regardless of owner)   │
+//	└─────────────────────────────────────────────────────────────┘
 func TestIntegration_WorkloadTypes(t *testing.T) {
 	cfg := &config.Config{
 		NdotsValue:     2,
@@ -494,6 +565,31 @@ func TestIntegration_WorkloadTypes(t *testing.T) {
 
 // TestIntegration_NamespaceMutationAcrossScenarios tests pod mutation across various
 // namespace, annotation, and exclusion combinations using the exact bug report config values
+//
+// Scenario:
+//
+//	                      ┌──────────────┐
+//	                      │   Webhook    │
+//	                      │  ndots=2     │
+//	                      │  opt-out mode│
+//	                      └──────┬───────┘
+//	                             │
+//	  ┌──────────────────────────┼──────────────────────────────┐
+//	  │                          │                              │
+//	  ▼                          ▼                              ▼
+//	NAMESPACE CHECK          ANNOTATION CHECK            PRIORITY
+//
+//	default        ✅ mut    no annotation     ✅ mut
+//	my-app         ✅ mut    ndots: "true"     ✅ mut   (opt-out ignores "true")
+//	kube-system    🚫 excl   ndots: "false"    🚫 skip
+//	kube-public    🚫 excl
+//	kube-node-lease🚫 excl
+//
+//	┌─────────────────────────────────────────────────┐
+//	│  kube-system + change-ndots: "true"             │
+//	│  → 🚫 NOT mutated                               │
+//	│  → namespace exclusion WINS over annotation     │
+//	└─────────────────────────────────────────────────┘
 func TestIntegration_NamespaceMutationAcrossScenarios(t *testing.T) {
 	// Full-stack setup with exact bug report config values
 	cfg := &config.Config{
@@ -731,6 +827,39 @@ func TestIntegration_NamespaceMutationAcrossScenarios(t *testing.T) {
 // TestIntegration_HandlerNamespaceResolution tests the interaction between the handler's
 // namespace resolution (req.Namespace vs pod.Namespace) and the mutator's namespace filtering.
 //
+// Scenario:
+//
+//	In real K8s, pod.metadata.namespace is often EMPTY during admission.
+//	The namespace lives in AdmissionRequest.namespace instead.
+//
+//	┌──────────────────────────┐    ┌────────────────────────────────┐
+//	│  AdmissionRequest        │    │  Pod Object                    │
+//	│  req.Namespace = ???     │    │  pod.Namespace = ???           │
+//	└────────────┬─────────────┘    └───────────────┬────────────────┘
+//	             │                                  │
+//	             └──────────┬───────────────────────┘
+//	                        ▼
+//	            ┌───────────────────────┐
+//	            │   Handler resolves NS │
+//	            │   from req.Namespace  │
+//	            └───────────┬───────────┘
+//	                        │
+//	                        ▼          ⚠️  BUG: resolved NS not
+//	              ┌─────────────────┐      passed to mutator!
+//	              │     Mutator     │      mutator sees pod.NS = ""
+//	              └────────┬────────┘
+//	                       │
+//	 ┌─────────────────────┼─────────────────────────────┐
+//	 │                     │                             │
+//	 ▼                     ▼                             ▼
+//
+//	pod.NS="default"     pod.NS=""                  pod.NS=""
+//	req.NS="default"     req.NS="default"           req.NS="kube-system"
+//	✅ mutated           ✅ mutated                 🐛 MUTATED (BUG!)
+//	(both agree)         (handler resolves ok)       should be excluded
+//	                                                 but "" ≠ "kube-system"
+//	                                                 so exclude list misses it
+//
 // BUG CONTEXT: In real Kubernetes admission webhooks, the pod object's Namespace field is
 // often empty during admission (Kubernetes sets it on the AdmissionRequest, not on the pod).
 // The handler resolves namespace correctly from req.Namespace (handler.go lines 138-141),
@@ -954,6 +1083,23 @@ func TestIntegration_HandlerNamespaceResolution(t *testing.T) {
 }
 
 // TestIntegration_NamespaceExclusion tests that pods in excluded namespaces are not mutated
+//
+// Scenario:
+//
+//	Exclude list: [kube-system, kube-public]
+//
+//	┌─────────-────┐     ┌─────────────┐
+//	│  default     │────>│ ✅ MUTATED  │
+//	└──────────-───┘     └─────────────┘
+//	┌──────────-───┐     ┌─────────────┐
+//	│  my-app      │────>│ ✅ MUTATED  │
+//	└───────────-──┘     └─────────────┘
+//	┌────────────-─┐     ┌─────────────┐
+//	│  kube-system │────>│ 🚫 EXCLUDED │
+//	└─────────────-┘     └─────────────┘
+//	┌────────────-─┐     ┌─────────────┐
+//	│  kube-public │────>│ 🚫 EXCLUDED │
+//	└───────────-──┘     └─────────────┘
 func TestIntegration_NamespaceExclusion(t *testing.T) {
 	cfg := &config.Config{
 		NdotsValue:       2,
