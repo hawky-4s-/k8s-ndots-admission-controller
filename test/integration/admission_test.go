@@ -492,6 +492,242 @@ func TestIntegration_WorkloadTypes(t *testing.T) {
 	}
 }
 
+// TestIntegration_NamespaceMutationAcrossScenarios tests pod mutation across various
+// namespace, annotation, and exclusion combinations using the exact bug report config values
+func TestIntegration_NamespaceMutationAcrossScenarios(t *testing.T) {
+	// Full-stack setup with exact bug report config values
+	cfg := &config.Config{
+		NdotsValue:       2,
+		AnnotationKey:    "change-ndots",
+		AnnotationMode:   "opt-out",
+		NamespaceExclude: []string{"kube-system", "kube-public", "kube-node-lease"},
+	}
+
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	reg := prometheus.NewRegistry()
+	metricsRecorder := metrics.NewRecorder(reg)
+
+	mutator := admission.NewMutator(cfg, logger)
+	handler := admission.NewHandlerWithMetrics(mutator, logger, metricsRecorder)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/mutate", handler.HandleMutate)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	tests := []struct {
+		name        string
+		pod         corev1.Pod
+		namespace   string
+		wantMutated bool
+		wantNdots   string
+	}{
+		{
+			name: "pod in default namespace with no annotation - mutated",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "default",
+				},
+				Spec: corev1.PodSpec{},
+			},
+			namespace:   "default",
+			wantMutated: true,
+			wantNdots:   "2",
+		},
+		{
+			name: "pod in custom my-app namespace - mutated",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "my-app",
+				},
+				Spec: corev1.PodSpec{},
+			},
+			namespace:   "my-app",
+			wantMutated: true,
+			wantNdots:   "2",
+		},
+		{
+			name: "pod in kube-system - NOT mutated",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "kube-system",
+				},
+				Spec: corev1.PodSpec{},
+			},
+			namespace:   "kube-system",
+			wantMutated: false,
+		},
+		{
+			name: "pod in kube-public - NOT mutated",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "kube-public",
+				},
+				Spec: corev1.PodSpec{},
+			},
+			namespace:   "kube-public",
+			wantMutated: false,
+		},
+		{
+			name: "pod in kube-node-lease - NOT mutated",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "kube-node-lease",
+				},
+				Spec: corev1.PodSpec{},
+			},
+			namespace:   "kube-node-lease",
+			wantMutated: false,
+		},
+		{
+			name: "pod with change-ndots false annotation in default - NOT mutated",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"change-ndots": "false",
+					},
+				},
+				Spec: corev1.PodSpec{},
+			},
+			namespace:   "default",
+			wantMutated: false,
+		},
+		{
+			name: "pod with no annotations in default - mutated",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod-no-annotations",
+					Namespace: "default",
+				},
+				Spec: corev1.PodSpec{},
+			},
+			namespace:   "default",
+			wantMutated: true,
+			wantNdots:   "2",
+		},
+		{
+			name: "pod with change-ndots true in default - still mutated (opt-out only skips on false)",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"change-ndots": "true",
+					},
+				},
+				Spec: corev1.PodSpec{},
+			},
+			namespace:   "default",
+			wantMutated: true,
+			wantNdots:   "2",
+		},
+		{
+			name: "pod in kube-system with change-ndots true - NOT mutated (namespace exclusion takes priority)",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "kube-system",
+					Annotations: map[string]string{
+						"change-ndots": "true",
+					},
+				},
+				Spec: corev1.PodSpec{},
+			},
+			namespace:   "kube-system",
+			wantMutated: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create admission review
+			podBytes, err := json.Marshal(tt.pod)
+			require.NoError(t, err)
+
+			review := admissionv1.AdmissionReview{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "admission.k8s.io/v1",
+					Kind:       "AdmissionReview",
+				},
+				Request: &admissionv1.AdmissionRequest{
+					UID:       "test-uid",
+					Namespace: tt.namespace,
+					Kind: metav1.GroupVersionKind{
+						Group:   "",
+						Version: "v1",
+						Kind:    "Pod",
+					},
+					Object: runtime.RawExtension{
+						Raw: podBytes,
+					},
+				},
+			}
+
+			reviewBytes, err := json.Marshal(review)
+			require.NoError(t, err)
+
+			// Send request
+			resp, err := http.Post(server.URL+"/mutate", "application/json", bytes.NewReader(reviewBytes))
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+			// Parse response
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+
+			var responseReview admissionv1.AdmissionReview
+			err = json.Unmarshal(body, &responseReview)
+			require.NoError(t, err)
+
+			assert.True(t, responseReview.Response.Allowed)
+
+			if tt.wantMutated {
+				assert.NotEmpty(t, responseReview.Response.Patch, "Expected pod to be mutated")
+				assert.NotNil(t, responseReview.Response.PatchType)
+
+				// Parse JSON patch and verify ndots value
+				var patchOps []map[string]interface{}
+				err = json.Unmarshal(responseReview.Response.Patch, &patchOps)
+				require.NoError(t, err)
+				assert.NotEmpty(t, patchOps, "Patch should have operations")
+
+				// Find ndots value in the patch
+				foundNdots := false
+				for _, op := range patchOps {
+					value, ok := op["value"]
+					if !ok {
+						continue
+					}
+					// The patch value is the dnsConfig object
+					if dnsConfig, ok := value.(map[string]interface{}); ok {
+						if options, ok := dnsConfig["options"].([]interface{}); ok {
+							for _, opt := range options {
+								if optMap, ok := opt.(map[string]interface{}); ok {
+									if optMap["name"] == "ndots" && optMap["value"] == tt.wantNdots {
+										foundNdots = true
+									}
+								}
+							}
+						}
+					}
+				}
+				assert.True(t, foundNdots, "Patch should set ndots to %s", tt.wantNdots)
+			} else {
+				assert.Empty(t, responseReview.Response.Patch, "Expected pod to NOT be mutated")
+			}
+		})
+	}
+}
+
 // TestIntegration_NamespaceExclusion tests that pods in excluded namespaces are not mutated
 func TestIntegration_NamespaceExclusion(t *testing.T) {
 	cfg := &config.Config{
