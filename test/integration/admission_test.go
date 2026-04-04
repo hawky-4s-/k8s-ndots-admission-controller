@@ -728,6 +728,231 @@ func TestIntegration_NamespaceMutationAcrossScenarios(t *testing.T) {
 	}
 }
 
+// TestIntegration_HandlerNamespaceResolution tests the interaction between the handler's
+// namespace resolution (req.Namespace vs pod.Namespace) and the mutator's namespace filtering.
+//
+// BUG CONTEXT: In real Kubernetes admission webhooks, the pod object's Namespace field is
+// often empty during admission (Kubernetes sets it on the AdmissionRequest, not on the pod).
+// The handler resolves namespace correctly from req.Namespace (handler.go lines 138-141),
+// but the resolved value is only used for logging/metrics. The pod struct is passed directly
+// to mutator.Mutate() without setting pod.Namespace, so the mutator's namespace filter
+// (mutator.go line 31) reads pod.Namespace which may be empty.
+//
+// When pod.Namespace is empty and the request targets an excluded namespace (e.g. kube-system),
+// the empty string won't match the exclude list, causing the mutator to incorrectly mutate
+// pods that should be excluded.
+func TestIntegration_HandlerNamespaceResolution(t *testing.T) {
+	// Full-stack setup with exact bug report config values
+	cfg := &config.Config{
+		NdotsValue:       2,
+		AnnotationKey:    "change-ndots",
+		AnnotationMode:   "opt-out",
+		NamespaceExclude: []string{"kube-system", "kube-public", "kube-node-lease"},
+	}
+
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	reg := prometheus.NewRegistry()
+	metricsRecorder := metrics.NewRecorder(reg)
+
+	mutator := admission.NewMutator(cfg, logger)
+	handler := admission.NewHandlerWithMetrics(mutator, logger, metricsRecorder)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/mutate", handler.HandleMutate)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	tests := []struct {
+		name string
+		pod  corev1.Pod
+		// reqNamespace is the namespace on the AdmissionRequest (set by Kubernetes API server)
+		reqNamespace string
+		// wantMutated is the EXPECTED correct behavior: should the pod be mutated?
+		// NOTE: Some tests may FAIL if the bug is present, which is the intended
+		// diagnostic outcome. The wantMutated value reflects the CORRECT behavior
+		// (i.e., what SHOULD happen), not necessarily what currently happens.
+		wantMutated bool
+		wantNdots   string
+	}{
+		{
+			// Baseline: pod.Namespace and req.Namespace both set to 'default'.
+			// Both match, so namespace resolution is unambiguous.
+			// Expected: mutated (default is not in the exclude list)
+			name: "baseline_both_namespaces_match_default_should_mutate",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "default",
+				},
+				Spec: corev1.PodSpec{},
+			},
+			reqNamespace: "default",
+			wantMutated:  true,
+			wantNdots:    "2",
+		},
+		{
+			// Simulates real K8s admission: pod.Namespace is empty, req.Namespace is 'default'.
+			// In real K8s, the API server sets namespace on the request, not always on the pod.
+			// Expected: mutated (default is not excluded)
+			// This tests whether mutation still works when pod.Namespace is empty but
+			// the request targets a non-excluded namespace.
+			name: "empty_pod_namespace_req_default_should_mutate",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod-empty-ns",
+					// Namespace intentionally left empty to simulate real K8s behavior
+				},
+				Spec: corev1.PodSpec{},
+			},
+			reqNamespace: "default",
+			wantMutated:  true,
+			wantNdots:    "2",
+		},
+		{
+			// KEY BUG VECTOR: pod.Namespace is empty, req.Namespace is 'kube-system' (excluded).
+			// The handler resolves namespace to 'kube-system' from req.Namespace, but only
+			// uses it for logging. The mutator reads pod.Namespace which is "" (empty).
+			// Empty string is NOT in the exclude list ["kube-system", "kube-public", "kube-node-lease"],
+			// so the namespace filter returns true (should mutate) when it should return false.
+			//
+			// EXPECTED (correct behavior): NOT mutated (kube-system is excluded)
+			// ACTUAL (with bug): mutated (empty string bypasses exclusion check)
+			name: "empty_pod_namespace_req_kube_system_should_NOT_mutate_but_bug_may_allow_it",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod-kube-system",
+					// Namespace intentionally left empty - this is the bug trigger
+				},
+				Spec: corev1.PodSpec{},
+			},
+			reqNamespace: "kube-system",
+			wantMutated:  false,
+		},
+		{
+			// Same bug vector as kube-system but for kube-public.
+			// pod.Namespace is empty, req.Namespace is 'kube-public' (excluded).
+			//
+			// EXPECTED (correct behavior): NOT mutated (kube-public is excluded)
+			// ACTUAL (with bug): mutated (empty string bypasses exclusion check)
+			name: "empty_pod_namespace_req_kube_public_should_NOT_mutate_but_bug_may_allow_it",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod-kube-public",
+					// Namespace intentionally left empty - this is the bug trigger
+				},
+				Spec: corev1.PodSpec{},
+			},
+			reqNamespace: "kube-public",
+			wantMutated:  false,
+		},
+		{
+			// Non-excluded namespace with empty pod.Namespace.
+			// pod.Namespace is empty, req.Namespace is 'my-app' (not excluded).
+			// Expected: mutated (my-app is not in the exclude list)
+			// This should work correctly even with the bug, since 'my-app' is not
+			// excluded and empty string is also not excluded.
+			name: "empty_pod_namespace_req_my_app_should_mutate",
+			pod: corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod-my-app",
+					// Namespace intentionally left empty
+				},
+				Spec: corev1.PodSpec{},
+			},
+			reqNamespace: "my-app",
+			wantMutated:  true,
+			wantNdots:    "2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create admission review with potentially different pod.Namespace and req.Namespace
+			podBytes, err := json.Marshal(tt.pod)
+			require.NoError(t, err)
+
+			review := admissionv1.AdmissionReview{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "admission.k8s.io/v1",
+					Kind:       "AdmissionReview",
+				},
+				Request: &admissionv1.AdmissionRequest{
+					UID:       "test-uid",
+					Namespace: tt.reqNamespace,
+					Kind: metav1.GroupVersionKind{
+						Group:   "",
+						Version: "v1",
+						Kind:    "Pod",
+					},
+					Object: runtime.RawExtension{
+						Raw: podBytes,
+					},
+				},
+			}
+
+			reviewBytes, err := json.Marshal(review)
+			require.NoError(t, err)
+
+			// Send request
+			resp, err := http.Post(server.URL+"/mutate", "application/json", bytes.NewReader(reviewBytes))
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+			// Parse response
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+
+			var responseReview admissionv1.AdmissionReview
+			err = json.Unmarshal(body, &responseReview)
+			require.NoError(t, err)
+
+			assert.True(t, responseReview.Response.Allowed)
+
+			if tt.wantMutated {
+				assert.NotEmpty(t, responseReview.Response.Patch,
+					"Expected pod to be mutated (pod.Namespace=%q, req.Namespace=%q)",
+					tt.pod.Namespace, tt.reqNamespace)
+				assert.NotNil(t, responseReview.Response.PatchType)
+
+				// Parse JSON patch and verify ndots value
+				var patchOps []map[string]interface{}
+				err = json.Unmarshal(responseReview.Response.Patch, &patchOps)
+				require.NoError(t, err)
+				assert.NotEmpty(t, patchOps, "Patch should have operations")
+
+				// Find ndots value in the patch - the patch value is the dnsConfig object
+				foundNdots := false
+				for _, op := range patchOps {
+					value, ok := op["value"]
+					if !ok {
+						continue
+					}
+					if dnsConfig, ok := value.(map[string]interface{}); ok {
+						if options, ok := dnsConfig["options"].([]interface{}); ok {
+							for _, opt := range options {
+								if optMap, ok := opt.(map[string]interface{}); ok {
+									if optMap["name"] == "ndots" && optMap["value"] == tt.wantNdots {
+										foundNdots = true
+									}
+								}
+							}
+						}
+					}
+				}
+				assert.True(t, foundNdots, "Patch should set ndots to %s", tt.wantNdots)
+			} else {
+				assert.Empty(t, responseReview.Response.Patch,
+					"Expected pod to NOT be mutated (pod.Namespace=%q, req.Namespace=%q). "+
+						"If this fails, it indicates the bug where empty pod.Namespace bypasses "+
+						"namespace exclusion for req.Namespace=%q",
+					tt.pod.Namespace, tt.reqNamespace, tt.reqNamespace)
+			}
+		})
+	}
+}
+
 // TestIntegration_NamespaceExclusion tests that pods in excluded namespaces are not mutated
 func TestIntegration_NamespaceExclusion(t *testing.T) {
 	cfg := &config.Config{
