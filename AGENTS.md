@@ -434,10 +434,15 @@ Configuration is loaded from environment variables:
 
 ### Commit Message Format
 
-Use conventional commits:
+Follow [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/#summary):
+
 ```
 feat: add namespace exclusion configuration
 fix: handle nil dnsConfig in pod spec
 docs: update deployment instructions
 test: add integration tests for webhook handler
 ```
+
+Common types: `feat`, `fix`, `docs`, `test`, `refactor`, `chore`, `ci`, `build`, `perf`, `style`.
+Use a scope when it clarifies the change, e.g. `chore(chart): ...`, `ci(release): ...`.
+Append `!` after the type/scope (or add a `BREAKING CHANGE:` footer) for breaking changes.
