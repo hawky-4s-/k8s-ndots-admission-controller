@@ -1,0 +1,32 @@
+# Patterns to ignore when building helm packages.
+# Operates similar to .gitignore — directories and files matching are excluded.
+
+# VCS
+.git/
+.gitignore
+.gitkeep
+
+# CI / IDE / OS
+.github/
+.idea/
+.vscode/
+.DS_Store
+
+# Helm
+*.tgz
+.helmignore
+
+# Editor backups / swap
+*.bak
+*.swp
+*~
+
+# Local development
+*.tpl.bak
+OWNERS
+OWNERS_ALIASES
+
+# Environment-specific values stay in the repo but are not packaged.
+# Override with -f at install time instead.
+qt-1.yaml
+*-values.yaml

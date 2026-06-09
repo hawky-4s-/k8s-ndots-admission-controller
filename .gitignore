@@ -33,7 +33,8 @@ go.work.sum
 
 bin/
 tmp/
-k8s-ndots-admission-controller
+# Built binary at repo root (anchored to avoid matching the chart dir of the same name)
+/k8s-ndots-admission-controller
 
 # Auto Claude data directory
 .auto-claude/
@@ -45,3 +46,6 @@ k8s-ndots-admission-controller
 .worktrees/
 .security-key
 logs/security/
+
+# Playwright MCP scratch output
+.playwright-mcp/
