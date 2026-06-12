@@ -106,7 +106,7 @@ This project follows strict development guidelines. See [AGENTS.md](./AGENTS.md)
 
 ### Prerequisites
 
-- Go 1.25+
+- Go 1.26+
 - Docker
 - Kind (for local clusters)
 

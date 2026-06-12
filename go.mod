@@ -1,6 +1,6 @@
 module github.com/hawky-4s-/k8s-ndots-admission-controller
 
-go 1.25.5
+go 1.26
 
 require (
 	github.com/prometheus/client_golang v1.23.2
